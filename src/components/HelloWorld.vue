@@ -1,122 +1,129 @@
 <template>
   <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br />
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener"
-        >vue-cli documentation</a
-      >.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel"
-          target="_blank"
-          rel="noopener"
-          >babel</a
+    <van-divider
+      ><h1><van-icon name="cluster-o" />垃圾分类</h1></van-divider
+    >
+    <van-card v-for="(cell, index) in cells.image" :key="index">
+      <template #title>
+        <div v-show="cell.info" class="gb-msg">
+          <div style="width: 100%; display: flex; flex-wrap: wrap">
+            <div class="gb-row">
+              垃圾类别置信度: {{ cell.info?.CategoryScore }}
+            </div>
+            <div class="gb-line">
+              名称: {{ cell.info?.Rubbish || "什么垃圾?😅" }}
+            </div>
+            <div class="gb-row">
+              物品名称置信度: {{ cell.info?.RubbishScore }}
+            </div>
+            <div class="gb-line">
+              垃圾类别:
+              <van-tag type="primary">{{
+                cell.info?.Category || "你看着扔吧"
+              }}</van-tag>
+            </div>
+          </div>
+        </div>
+      </template>
+      <!-- <template #desc> {{ cell.info?.Rubbish }} </template> -->
+      <template #thumb>
+        <van-uploader
+          v-model="cell.fileList"
+          :deletable="false"
+          :after-read="afterRead"
+          @click-preview="showResult"
+          :max-count="1"
         >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-router"
-          target="_blank"
-          rel="noopener"
-          >router</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint"
-          target="_blank"
-          rel="noopener"
-          >eslint</a
-        >
-      </li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li>
-        <a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a>
-      </li>
-      <li>
-        <a href="https://forum.vuejs.org" target="_blank" rel="noopener"
-          >Forum</a
-        >
-      </li>
-      <li>
-        <a href="https://chat.vuejs.org" target="_blank" rel="noopener"
-          >Community Chat</a
-        >
-      </li>
-      <li>
-        <a href="https://twitter.com/vuejs" target="_blank" rel="noopener"
-          >Twitter</a
-        >
-      </li>
-      <li>
-        <a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a>
-      </li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li>
-        <a href="https://router.vuejs.org" target="_blank" rel="noopener"
-          >vue-router</a
-        >
-      </li>
-      <li>
-        <a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a>
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-devtools#vue-devtools"
-          target="_blank"
-          rel="noopener"
-          >vue-devtools</a
-        >
-      </li>
-      <li>
-        <a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener"
-          >vue-loader</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/awesome-vue"
-          target="_blank"
-          rel="noopener"
-          >awesome-vue</a
-        >
-      </li>
-    </ul>
+          <template #preview-cover="{ file }">
+            <div class="preview-cover van-ellipsis">{{ file.name }}</div>
+          </template>
+        </van-uploader>
+      </template>
+    </van-card>
   </div>
 </template>
 
 <script>
+import { reactive } from "vue";
+import axios from "axios";
+
+const HOST_NAME = "http://192.168.76.23:5000/file/upload";
+
 export default {
   name: "HelloWorld",
   props: {
     msg: String,
+  },
+  setup() {
+    const cells = reactive({ image: [{}] });
+    async function afterRead(file) {
+      const rawData = new FormData();
+      rawData.append("file", file.file);
+      file.status = "uploading";
+      const { data: aiIdtRes } = await axios({
+        method: "POST",
+        url: HOST_NAME,
+        data: rawData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      file.status = "done";
+      const aimData = aiIdtRes.data[0].Data.Elements[0];
+      cells.image[cells.image.length - 1].info = {
+        Category: aimData.Category,
+        CategoryScore: parseFloat(aimData.CategoryScore).toFixed(2),
+        Rubbish: aimData.Rubbish,
+        RubbishScore: parseFloat(aimData.RubbishScore).toFixed(2),
+      };
+      // aiIdtRes.data[0].Data.Elements[0];
+      // cells[cells.length - 1].value.push();
+      // console.log(aiIdtRes.data[0].Data.Elements[0]);
+      cells.image.push({});
+      // cells.image.push(aiIdtRes.data[0].Data.Elements[0]);
+      // cells.image.push(aiIdtRes.data[0].Data.Elements[0]);
+    }
+
+    function showResult() {}
+
+    return {
+      cells,
+      afterRead,
+      showResult,
+    };
   },
 };
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
-h3 {
-  margin: 40px 0 0;
+.preview-cover {
+  position: absolute;
+  bottom: 0;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 4px;
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.3);
 }
-ul {
-  list-style-type: none;
-  padding: 0;
+.gb-msg {
+  display: flex;
+  // flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  height: 88px;
 }
-li {
-  display: inline-block;
-  margin: 0 10px;
+.gb-row {
+  width: 50%;
+  margin: 3px 0px;
 }
-a {
-  color: #42b983;
+
+.gb-line {
+  margin: 3px 0px;
+  display: flex;
+  align-items: center;
 }
 </style>
